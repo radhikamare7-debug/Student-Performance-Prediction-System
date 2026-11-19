@@ -584,9 +584,26 @@ elif page == "Prediction History":
                     ]
 
                     if not uci_df.empty:
+    
+                        display_columns = [
+                            "Student Name",
+                            "Algorithm",
+                            "Prediction",
+                            "Created At",
+                            "study_hours",
+                            "attendance",
+                            "previous_marks",
+                            "assignment_marks",
+                            "internal_marks"
+                        ]
+
+                        available_columns = [
+                            col for col in display_columns
+                            if col in uci_df.columns
+                        ]
 
                         st.dataframe(
-                            uci_df,
+                            uci_df[available_columns],
                             width="stretch",
                             hide_index=True
                         )

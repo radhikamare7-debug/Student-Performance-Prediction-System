@@ -26,9 +26,11 @@ def get_connection():
 # SAVE STUDENT DETAILS
 # --------------------------------------------------
 
-def save_student(name, roll, department, study_hours,
-                 attendance, previous_marks,
-                 assignment_marks, internal_marks):
+def save_student(
+    name, roll, department, study_hours,
+    attendance, previous_marks,
+    assignment_marks, internal_marks
+):
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -39,6 +41,7 @@ def save_student(name, roll, department, study_hours,
          attendance, previous_marks,
          assignment_marks, internal_marks)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+
         ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         department = VALUES(department),
@@ -66,9 +69,11 @@ def save_student(name, roll, department, study_hours,
 # OLD PREDICTION SAVE
 # --------------------------------------------------
 
-def save_prediction(name, study_hours, attendance,
-                    previous_marks, assignment_marks,
-                    internal_marks, algorithm, prediction):
+def save_prediction(
+    name, study_hours, attendance,
+    previous_marks, assignment_marks,
+    internal_marks, algorithm, prediction
+):
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -95,7 +100,7 @@ def save_prediction(name, study_hours, attendance,
 
 
 # --------------------------------------------------
-# CREATE NEW UCI PREDICTIONS TABLE
+# CREATE UCI PREDICTIONS TABLE
 # --------------------------------------------------
 
 def create_uci_prediction_table():
@@ -105,12 +110,19 @@ def create_uci_prediction_table():
 
     query = """
         CREATE TABLE IF NOT EXISTS uci_predictions (
+
             id INT AUTO_INCREMENT PRIMARY KEY,
+
             student_name VARCHAR(150) NOT NULL,
+
             algorithm VARCHAR(100) NOT NULL,
+
             prediction VARCHAR(20) NOT NULL,
+
             input_features LONGTEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+            created_at TIMESTAMP
+            DEFAULT CURRENT_TIMESTAMP
         )
     """
 
@@ -121,11 +133,13 @@ def create_uci_prediction_table():
 
 
 # --------------------------------------------------
-# SAVE NEW UCI PREDICTION
+# SAVE UCI PREDICTION
 # --------------------------------------------------
 
-def save_uci_prediction(name, input_features,
-                        algorithm, prediction):
+def save_uci_prediction(
+    name, input_features,
+    algorithm, prediction
+):
 
     create_uci_prediction_table()
 
@@ -135,6 +149,7 @@ def save_uci_prediction(name, input_features,
     query = """
         INSERT INTO uci_predictions
         (student_name, algorithm, prediction, input_features)
+
         VALUES (%s, %s, %s, %s)
     """
 
@@ -151,6 +166,57 @@ def save_uci_prediction(name, input_features,
     cursor.close()
     conn.close()
 
+# --------------------------------------------------
+# PROCESS UCI FEATURES
+# --------------------------------------------------
+
+def process_uci_record(record):
+
+    features = record.get("input_features")
+
+    # Convert JSON string into dictionary
+    if isinstance(features, str):
+        try:
+            features = json.loads(features)
+        except (json.JSONDecodeError, TypeError):
+            features = {}
+
+    if not isinstance(features, dict):
+        features = {}
+
+    # Student Study Time
+    studytime = features.get("studytime")
+
+    record["study_hours"] = (
+        f"{studytime} (Category 1-4)"
+        if studytime is not None else "N/A"
+    )
+
+    # Attendance / Absences
+    absences = features.get("absences")
+
+    record["attendance"] = (
+        f"{absences} absences"
+        if absences is not None else "N/A"
+    )
+
+    # Previous Marks
+    g1 = features.get("G1")
+    g2 = features.get("G2")
+
+    if g1 is not None and g2 is not None:
+        record["previous_marks"] = f"G1: {g1}, G2: {g2}"
+    else:
+        record["previous_marks"] = "N/A"
+
+    # Assignment Marks
+    record["assignment_marks"] = "N/A"
+
+    # Internal Marks
+    record["internal_marks"] = "N/A"
+
+    return record
+
 
 # --------------------------------------------------
 # GET OLD + NEW PREDICTION HISTORY
@@ -165,32 +231,30 @@ def get_prediction_history():
     cursor.execute(
         "SELECT * FROM predictions ORDER BY id DESC"
     )
-
     old_records = cursor.fetchall()
 
-    # New UCI prediction records
-    cursor.execute("""
-        SELECT * FROM uci_predictions
-        ORDER BY id DESC
-    """)
-
+    # UCI prediction records
+    cursor.execute(
+        "SELECT * FROM uci_predictions ORDER BY id DESC"
+    )
     new_records = cursor.fetchall()
 
     cursor.close()
     conn.close()
 
-    # Identify record types
+    # Add record type
     for record in old_records:
         record["Record Type"] = "Old Dataset"
 
     for record in new_records:
         record["Record Type"] = "UCI Dataset"
+        process_uci_record(record)
 
-    # Combine both histories
+    # Combine records
     all_records = old_records + new_records
 
     all_records.sort(
-        key=lambda x: x.get("created_at"),
+        key=lambda x: str(x.get("created_at", "")),
         reverse=True
     )
 
@@ -204,17 +268,12 @@ def get_prediction_history():
 if __name__ == "__main__":
 
     try:
-
         conn = get_connection()
-
         print("MySQL Database Connected Successfully!")
-
         conn.close()
 
         create_uci_prediction_table()
-
         print("UCI Predictions Table Ready!")
 
     except mysql.connector.Error as error:
-
         print("Database Error:", error)
