@@ -7,7 +7,8 @@ import os
 from db import (
     save_student,
     get_prediction_history,
-    save_uci_prediction
+    save_uci_prediction,
+    create_tables
 )
 
 # --------------------------------------------------
@@ -23,7 +24,23 @@ st.set_page_config(
 DATASET_PATH = "dataset/uci_student_performance.csv"
 MODEL_PATH = "models"
 
+
 # --------------------------------------------------
+# DATABASE INITIALIZATION
+# --------------------------------------------------
+
+@st.cache_resource
+def initialize_database():
+    create_tables()
+    return True
+
+
+try:
+    initialize_database()
+except Exception as error:
+    st.warning(f"Database initialization failed: {error}")
+    
+#-------------------------------------------------
 # LOAD DATASET
 # --------------------------------------------------
 
