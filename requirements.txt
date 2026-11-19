@@ -5,4 +5,5 @@ scikit-learn
 matplotlib
 seaborn
 mysql-connector-python
-joblibpython-dotenv
+joblib
+python-dotenv
